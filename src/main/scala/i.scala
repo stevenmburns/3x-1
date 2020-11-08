@@ -15,6 +15,13 @@ object CSA {
    }
 }
 
+object CSA4 {
+   def apply( a0 : UInt, a1 : UInt, a2 : UInt, a3 : UInt) : (UInt,UInt) = {
+       val (s0,c0) = CSA(a0,a1,a2)
+       CSA(a3,s0,c0<<1)
+   }
+}
+
 object CSA6 {
    def apply( a0 : UInt, a1 : UInt, a2 : UInt, a3 : UInt, a4 : UInt, a5 : UInt) : (UInt,UInt,UInt) = {
 
@@ -28,7 +35,7 @@ object CSA6 {
    }
 }
 
-class Collatz extends Module {
+class Collatz6 extends Module {
   val n = 1024
 
   val io = IO(new Bundle {
@@ -55,7 +62,6 @@ class Collatz extends Module {
 
   val ns_z = a | b | c | d | e | f | ps_z
 
-
   ps_z := ns_z
   ps_o := ns_o
   ps_t := ns_t
@@ -65,7 +71,7 @@ class Collatz extends Module {
 
   io.isOne := ps_t === 0.U && ps_f === 0.U && ps_o === 1.U
 
-  //assert( isOne2 === io.isOne)
+  assert( isOne2 === io.isOne)
 
   when ( !ps_o(0)) {
      val a = ps_o >> 1
@@ -73,13 +79,13 @@ class Collatz extends Module {
      val c = ps_f << 1
      val (ns_o,ns_t) = CSA(a,b,c)
 
-     ps_z := a | b | c | ps_z
+     ps_z := a | b | c | (ps_z>>1)
      ps_o := ns_o
      ps_t := ns_t
      ps_f := 0.U
   }
 
-  io.ov := false.B
+  io.ov := ps_z(n-1)
 
   when (io.ld) {
      ps_z := io.active
@@ -89,3 +95,60 @@ class Collatz extends Module {
   }
 
 }
+
+class Collatz4 extends Module {
+  val n = 1024
+
+  val io = IO(new Bundle {
+     val inp    = Input(UInt(n.W))
+     val active = Input(UInt(n.W))
+     val ld = Input(Bool())
+     val isOne = Output(Bool())
+     val ov = Output(Bool())
+  })
+
+  val ps_o = Reg(UInt(n.W))
+  val ps_t = Reg(UInt(n.W))
+  val ps_z = Reg(UInt(n.W))
+
+  val a0 = ps_o
+  val a1 = ps_t << 1 | 1.U
+  val a2 = ps_o << 1
+  val a3 = ps_t << 2
+
+  val (s0,c0) = CSA(a0,a1,a2)
+  val (ns_o,ns_t) = CSA(a3,s0,c0<<1)
+
+  val ns_z = a3 | s0 | (c0<<1) | ps_z
+
+  ps_z := ns_z
+  ps_o := ns_o
+  ps_t := ns_t
+
+  val isOne2 = !ps_z(1) && ps_o(0)
+
+  io.isOne := ps_t === 0.U && ps_o === 1.U
+
+  assert( isOne2 === io.isOne)
+
+  when ( !ps_o(0)) {
+     val a = ps_o >> 1
+     val b = ps_t
+     val (ns_o,ns_t) = HA(a,b)
+
+     ps_z := a | b | (ps_z>>1)
+     ps_o := ns_o
+     ps_t := ns_t
+  }
+
+  io.ov := ps_z(n-1)
+
+  when (io.ld) {
+     ps_z := io.active
+     ps_o := io.inp
+     ps_t := 0.U
+  }
+
+}
+
+class Collatz extends Collatz4

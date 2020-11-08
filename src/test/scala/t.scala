@@ -78,6 +78,7 @@ class CollatzTest extends GenericTest {
 //	     println( s"\toldx: ${oldx.toString(16)} => ${x.toString(16)}")
 	  }
 
+	  val max_trials = 1000
 	  var trials = 0
 
 	  for { k <- 800 to 800} {      
@@ -86,7 +87,7 @@ class CollatzTest extends GenericTest {
 	      poke(c.io.active, active)
 	      val start = (BigInt(1)<<(k-1))+1
 	      var inp = start
-	      while ( inp <= active && trials < 10) {
+	      while ( inp <= active && trials < max_trials) {
 	         inp = BigInt( k-1, rnd) | BigInt(1)<<(k-1)	         
 		 println( s"Working on ${inp.toString(16)}")
 		 poke(c.io.inp, inp)
