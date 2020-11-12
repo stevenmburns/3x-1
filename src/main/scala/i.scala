@@ -114,13 +114,13 @@ class Collatz extends Module {
 
   val (s,c) = HA(ps_o0(0), ps_o1(0))
   when ( !s) {
-     val a = ps_o0 >> 1
-     val b = ps_o1 >> 1
-     val (ns_o0,ns_o1) = CSA(a,b,c)
+     val ns_o0 = ps_o0 >> 1
+     val ns_o1 = ps_o1 >> 1
 
      ps_z := ns_o0 | ns_o1 | (ps_z>>1)
      ps_o0 := ns_o0
      ps_o1 := ns_o1
+     ps_extra_c := c
   }
 
   io.ov := ps_z(n-1)
