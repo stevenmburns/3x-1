@@ -4,57 +4,6 @@ package collatz
 import chisel3._
 import chisel3.iotesters._
 
-class CSA6Wrapper extends Module {
-  val io = IO(new Bundle {
-     val a = Input(UInt(8.W))
-     val b = Input(UInt(8.W))
-     val c = Input(UInt(8.W))
-     val d = Input(UInt(8.W))
-     val e = Input(UInt(8.W))
-     val f = Input(UInt(8.W))
-     val out0 = Output(UInt(8.W))
-     val out1 = Output(UInt(8.W))
-     val out2 = Output(UInt(8.W))
-  })
-
-  val (out0,out1,out2) = CSA6(io.a,io.b,io.c,io.d,io.e,io.f)
-  io.out0 := out0  
-  io.out1 := out1
-  io.out2 := out2  
-}
-
-class CSA6Test extends GenericTest {
-  val factory = () => new CSA6Wrapper
-  behavior of s"CSA6Test"
-  it should "compile and execute without expect violations" in {
-    chisel3.iotesters.Driver.execute( factory, optionsManager) { c =>
-      new PeekPokeTester(c) {
-        poke(c.io.a, BigInt("10101010",2))
-        poke(c.io.b, BigInt("11001100",2))
-        poke(c.io.c, BigInt("11110000",2))
-        poke(c.io.d, 0)
-        poke(c.io.e, 0)
-        poke(c.io.f, 0)
-	step(1)
-	expect( c.io.out0, BigInt("10010110",2))
-	expect( c.io.out1, BigInt("11101000",2))
-	expect( c.io.out2, BigInt("00000000",2))
-
-        poke(c.io.a, 0)
-        poke(c.io.b, 0)
-        poke(c.io.c, 0)
-        poke(c.io.d, BigInt("10101010",2))
-        poke(c.io.e, BigInt("11001100",2))
-        poke(c.io.f, BigInt("11110000",2))
-	step(1)
-	expect( c.io.out0, BigInt("10010110",2))
-	expect( c.io.out1, BigInt("11101000",2))
-	expect( c.io.out2, BigInt("00000000",2))
-      }	
-    } should be (true)
-  }
-}
-
 class CollatzTest extends GenericTest {
   val factory = () => new Collatz
   behavior of s"CollatzTest"
@@ -78,7 +27,7 @@ class CollatzTest extends GenericTest {
 //	     println( s"\toldx: ${oldx.toString(16)} => ${x.toString(16)}")
 	  }
 
-	  val max_trials = 1000
+	  val max_trials = 20
 	  var trials = 0
 
 	  for { k <- 800 to 800} {      
