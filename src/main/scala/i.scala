@@ -15,9 +15,7 @@ object CSA {
    }
 }
 
-class CollatzAlt extends Module {
-  val n = 1024
-
+class CollatzAlt(val n : Int = 1024) extends Module {
   val io = IO(new Bundle {
      val inp    = Input(UInt(n.W))
      val active = Input(UInt(n.W))
@@ -71,8 +69,7 @@ class CollatzAlt extends Module {
 
 }
 
-class Collatz extends Module {
-  val n = 1024
+class Collatz(val n : Int = 1024) extends Module {
 
   val io = IO(new Bundle {
      val inp    = Input(UInt(n.W))
@@ -81,6 +78,9 @@ class Collatz extends Module {
      val isOne = Output(Bool())
      val ov = Output(Bool())
   })
+
+
+  val running = RegInit(init=false.B)
 
   val ps_o0 = Reg(UInt(n.W))
   val ps_o1 = Reg(UInt(n.W))
@@ -94,25 +94,22 @@ class Collatz extends Module {
   val a3 = ps_o1 << 1 | ps_extra_c
 
   val (s0,c0) = CSA(a0,a1,a2)
-  val (s1,c1) = CSA(a3,s0,c0<<1)
+  val (s1,c1) = CSA(a3,s0,c0<<1 | ps_extra_c)
 
   val ns_o0 = s1
-  val ns_o1 = c1 << 1
+  val ns_o1 = c1 << 1 | ps_extra_c
 
-  val ns_z = ns_o0 | ns_o1 | ps_z
+  val ns_z = ns_o0 | ns_o1 | ns_o1 >> 1 | ps_z
 
   ps_z := ns_z
   ps_o0 := ns_o0
   ps_o1 := ns_o1
+  ps_extra_c := false.B
 
-  val isOne2 = !ps_z(1) && ps_o0(0) && ps_o1(0)
+  val (s,c) = CSA(ps_o0(0), ps_o1(0), ps_extra_c)
 
-  io.isOne := ps_o0 === 1.U && ps_o1 =/= 1.U || ps_o0 =/= 1.U && ps_o1 === 1.U
+  io.isOne := !ps_z(1) && s(0) && !c(0)
 
-  assert( isOne2 === io.isOne)
-
-
-  val (s,c) = HA(ps_o0(0), ps_o1(0))
   when ( !s) {
      val ns_o0 = ps_o0 >> 1
      val ns_o1 = ps_o1 >> 1
@@ -130,6 +127,41 @@ class Collatz extends Module {
      ps_o0 := io.inp
      ps_o1 := 0.U
      ps_extra_c := false.B
+     running := true.B
   }
+
+  val check = true
+
+  if ( check) {
+    val x = Reg(UInt(n.W))
+
+    when ( (x & 1.U) === 1.U) {
+      x := x + (x << 1) + 1.U
+    } .otherwise {
+      x := x >> 1
+    }
+
+    def scan_ps( ps : UInt) : UInt = 
+      VecInit(ps.asBools.reverse.scanLeft(false.B)( (x,y) => x || y).drop(1).reverse).asUInt
+
+    val check_ps_z = scan_ps(ps_o0) | scan_ps(ps_o1)
+
+    println( s"Width of ps_z ${ps_z.getWidth}, check_ps_z ${check_ps_z.getWidth}")
+
+    when ( running) {
+      assert( check_ps_z === ps_z)
+      assert( (x & 1.U) === s(0))
+      assert( x === ps_o0 + ps_o1 + ps_extra_c)
+    }
+
+    printf( "s: %x c: %x ps_o0: %d ps_o1: %d ps_z: %x scan_ps_z: %x ps_extra_c: %x x: %d\n", s, c, ps_o0, ps_o1, ps_z, check_ps_z, ps_extra_c, x)
+
+    when (io.ld) {
+      ps_z := io.active
+      x := io.inp
+    }
+  }
+
+
 
 }

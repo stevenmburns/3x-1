@@ -5,7 +5,60 @@ import chisel3._
 import chisel3.iotesters._
 
 class CollatzTest extends GenericTest {
-  val factory = () => new Collatz
+  val factory = () => new Collatz(16)
+  behavior of s"CollatzTest"
+  it should "compile and execute without expect violations" in {
+    chisel3.iotesters.Driver.execute( factory, optionsManager) { c =>
+      new PeekPokeTester(c) {
+
+          var x = BigInt(0)
+
+          def collatz_init( inp : BigInt) {
+	     x = inp
+	  }
+
+          def collatz_step() {
+	     val oldx = x
+	     if ( (x & BigInt(1)) != 0) {
+	       x = x+(x<<1)+1
+	     } else {
+	       x = (x>>1)
+	     }
+//	     println( s"\toldx: ${oldx.toString(16)} => ${x.toString(16)}")
+	  }
+
+          def run_one( active : BigInt, inp : BigInt) {
+	    poke(c.io.active, active)
+	    poke(c.io.inp, inp)
+	    poke(c.io.ld, 1)
+	    step(1)
+	    collatz_init(inp)
+	    poke(c.io.ld, 0)
+
+	    val max_iter = 100000
+	    var iter = 0
+
+	    while ( peek( c.io.isOne) == 0
+	            && peek( c.io.ov) == 0
+	            && iter < max_iter) {
+	      step(1)
+	      collatz_step()
+	      iter += 1
+	    }
+	    val ov = peek( c.io.ov)
+	    val isOne = peek( c.io.isOne)
+	    assert( isOne == 0 || x == 1)
+	    println( s"isOne in ${iter} iterations isOne: ${isOne} x: ${x} ov: ${ov}")
+	  }
+
+          run_one( 15, 9)
+      }
+    } should be (true)
+  }
+}
+
+class CollatzRandomTest extends GenericTest {
+  val factory = () => new Collatz(1024)
   behavior of s"CollatzTest"
   it should "compile and execute without expect violations" in {
     chisel3.iotesters.Driver.execute( factory, optionsManager) { c =>
