@@ -1,7 +1,6 @@
 package collatz
 
 import chisel3._
-import chisel3.util._
 
 object HA {
    def apply( a : UInt, b : UInt) : (UInt,UInt) = {
@@ -15,7 +14,7 @@ object CSA {
    }
 }
 
-class CollatzAlt(val n : Int = 1024) extends Module {
+class CollatzOnesTwos(val n : Int = 1024) extends Module {
   val io = IO(new Bundle {
      val inp    = Input(UInt(n.W))
      val active = Input(UInt(n.W))
@@ -23,6 +22,8 @@ class CollatzAlt(val n : Int = 1024) extends Module {
      val isOne = Output(Bool())
      val ov = Output(Bool())
   })
+
+  val running = RegInit(init=false.B)
 
   val ps_o = Reg(UInt(n.W))
   val ps_t = Reg(UInt(n.W))
@@ -36,8 +37,8 @@ class CollatzAlt(val n : Int = 1024) extends Module {
   val (s0,c0) = CSA(a0,a1,a2)
   val (ns_o,ns_t) = CSA(a3,s0,c0<<1)
 
-  //val ns_z = a3 | s0 | (c0<<1) | ps_z
-  val ns_z = ns_o | ns_t | ps_z
+  val ns_z = a3 | s0 | (c0<<1) | ps_z
+  //val ns_z = ns_o | ns_t | ps_z
 
   ps_z := ns_z
   ps_o := ns_o
@@ -65,11 +66,44 @@ class CollatzAlt(val n : Int = 1024) extends Module {
      ps_z := io.active
      ps_o := io.inp
      ps_t := 0.U
+     running := true.B
+  }
+
+  val check = false
+
+  if ( check) {
+    val x = Reg(UInt(n.W))
+
+    when ( (x & 1.U) === 1.U) {
+      x := x + (x << 1) + 1.U
+    } .otherwise {
+      x := x >> 1
+    }
+
+    def scan_ps( ps : UInt) : UInt = 
+      VecInit(ps.asBools.scanRight(false.B)( (x,y) => x || y).dropRight(1)).asUInt
+
+    val check_ps_z = scan_ps(ps_o) | scan_ps(ps_t)
+
+    println( s"Width of ps_z ${ps_z.getWidth}, check_ps_z ${check_ps_z.getWidth}")
+
+    when ( running) {
+      assert( check_ps_z === ps_z)
+      assert( x(0) === ps_o(0))
+      assert( x === ps_o + (ps_t << 1))
+    }
+
+    printf( "ps_o: %d ps_t: %d ps_z: %x scan_ps_z: %x x: %d\n", ps_o, ps_t, ps_z, check_ps_z, x)
+
+    when (io.ld) {
+      ps_z := io.active
+      x := io.inp
+    }
   }
 
 }
 
-class Collatz(val n : Int = 1024) extends Module {
+class CollatzBest(val n : Int = 1024) extends Module {
 
   val io = IO(new Bundle {
      val inp    = Input(UInt(n.W))
@@ -130,7 +164,7 @@ class Collatz(val n : Int = 1024) extends Module {
      running := true.B
   }
 
-  val check = true
+  val check = false
 
   if ( check) {
     val x = Reg(UInt(n.W))
@@ -142,7 +176,7 @@ class Collatz(val n : Int = 1024) extends Module {
     }
 
     def scan_ps( ps : UInt) : UInt = 
-      VecInit(ps.asBools.reverse.scanLeft(false.B)( (x,y) => x || y).drop(1).reverse).asUInt
+      VecInit(ps.asBools.scanRight(false.B)( (x,y) => x || y).dropRight(1)).asUInt
 
     val check_ps_z = scan_ps(ps_o0) | scan_ps(ps_o1)
 
@@ -150,7 +184,7 @@ class Collatz(val n : Int = 1024) extends Module {
 
     when ( running) {
       assert( check_ps_z === ps_z)
-      assert( (x & 1.U) === s(0))
+      assert( x(0) === s(0))
       assert( x === ps_o0 + ps_o1 + ps_extra_c)
     }
 
@@ -161,7 +195,7 @@ class Collatz(val n : Int = 1024) extends Module {
       x := io.inp
     }
   }
-
-
-
 }
+
+//class Collatz(n : Int = 1024) extends CollatzOnesTwos(n)
+class Collatz(n : Int = 1024) extends CollatzBest(n)
