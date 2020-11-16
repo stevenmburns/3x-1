@@ -14,7 +14,7 @@ object CSA {
    }
 }
 
-class CollatzOnesTwos(val n : Int = 1024) extends Module {
+class CollatzIfc(val n : Int) extends Module {
   val io = IO(new Bundle {
      val inp    = Input(UInt(n.W))
      val active = Input(UInt(n.W))
@@ -22,7 +22,9 @@ class CollatzOnesTwos(val n : Int = 1024) extends Module {
      val isOne = Output(Bool())
      val ov = Output(Bool())
   })
+}
 
+class CollatzOnesTwos(n : Int) extends CollatzIfc(n) {
   val running = RegInit(init=false.B)
 
   val ps_o = Reg(UInt(n.W))
@@ -30,7 +32,7 @@ class CollatzOnesTwos(val n : Int = 1024) extends Module {
   val ps_z = Reg(UInt(n.W))
 
   val a0 = ps_o
-  val a1 = ps_t << 1 | 1.U
+  val a1 = (ps_t << 1) | 1.U
   val a2 = ps_o << 1
   val a3 = ps_t << 2
 
@@ -60,7 +62,7 @@ class CollatzOnesTwos(val n : Int = 1024) extends Module {
      ps_t := ns_t
   }
 
-  io.ov := ps_z(n-1)
+  io.ov := ps_z(n-2)
 
   when (io.ld) {
      ps_z := io.active
@@ -103,17 +105,7 @@ class CollatzOnesTwos(val n : Int = 1024) extends Module {
 
 }
 
-class CollatzBest(val n : Int = 1024) extends Module {
-
-  val io = IO(new Bundle {
-     val inp    = Input(UInt(n.W))
-     val active = Input(UInt(n.W))
-     val ld = Input(Bool())
-     val isOne = Output(Bool())
-     val ov = Output(Bool())
-  })
-
-
+class CollatzBest(n : Int) extends CollatzIfc(n) {
   val running = RegInit(init=false.B)
 
   val ps_o0 = Reg(UInt(n.W))
@@ -124,16 +116,16 @@ class CollatzBest(val n : Int = 1024) extends Module {
 
   val a0 = ps_o0
   val a1 = ps_o1
-  val a2 = ps_o0 << 1 | 1.U
-  val a3 = ps_o1 << 1 | ps_extra_c
+  val a2 = (ps_o0 << 1) | 1.U
+  val a3 = (ps_o1 << 1) | ps_extra_c
 
   val (s0,c0) = CSA(a0,a1,a2)
-  val (s1,c1) = CSA(a3,s0,c0<<1 | ps_extra_c)
+  val (s1,c1) = CSA(a3,s0,(c0<<1) | ps_extra_c)
 
   val ns_o0 = s1
-  val ns_o1 = c1 << 1 | ps_extra_c
+  val ns_o1 = (c1 << 1) | ps_extra_c
 
-  val ns_z = ns_o0 | ns_o1 | ns_o1 >> 1 | ps_z
+  val ns_z = ns_o0 | ns_o1 | (ns_o1 >> 1) | ps_z
 
   ps_z := ns_z
   ps_o0 := ns_o0
@@ -196,6 +188,3 @@ class CollatzBest(val n : Int = 1024) extends Module {
     }
   }
 }
-
-//class Collatz(n : Int = 1024) extends CollatzOnesTwos(n)
-class Collatz(n : Int = 1024) extends CollatzBest(n)
